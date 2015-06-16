@@ -1,3 +1,5 @@
+`include "header.v"
+
 module top(
     input CCLK,
     input [3:0] BTN,
@@ -49,7 +51,7 @@ module top(
     InstructionMemory instr_mem(.addra(o_pc), .clka(clk), .douta(I));
 
     // regs
-    reg [31:0] ID_PC, ID_Instr;
+    reg [31:0] ID_PC, ID_I;
     reg [31:0] ID_NPC, EX_NPC, MEM_NPC;
 
     always @(posedge clk) begin
@@ -73,8 +75,9 @@ module top(
     wire [4:0] reg_write, reg_disp;
 
     assign disp_addr = {debpb1, SW}; // for debug
-
-    RegFile reg(.clk(~clk), .rst(rst), .regA(ID_I[25:21]), .regB(ID_I[20:16]),
+	
+    reg EX_WriteReg, MEM_WriteReg, WB_WriteReg;
+    RegFile reg_file(.clk(~clk), .rst(rst), .regA(ID_I[25:21]), .regB(ID_I[20:16]),
                 .regW(WB_RegDst), .Wdat(data_write), .Adat(A), .Bdat(B),
                 .RegWrite(WB_WriteReg), .regC(reg_disp), .Cdat(C));
 
@@ -84,8 +87,9 @@ module top(
     // regs
     reg [31:0] EX_I, EX_A, EX_B, EX_immed;
 
-    reg EX_ALUsrcB, EX_MemWrite, EX_WriteReg, EX_MemToReg, EX_RegDst;
-
+    reg EX_ALUSrcB, EX_MemWrite, EX_RegDst;
+	 reg EX_MemToReg, MEM_MemToReg, WB_MemToReg;
+	 
     reg [2:0] EX_branch_sig, MEM_branch_sig;
 
     reg EX_Branch, MEM_Branch;
@@ -101,7 +105,7 @@ module top(
         EX_NPC <= ID_NPC;
 
         // signals
-        EX_ALUsrcB <= ALUsrcB;
+        EX_ALUSrcB <= ALUSrcB;
         EX_ALUop <= {ALUop2, ALUop1, ALUop0};
         EX_MemWrite <= MemWrite;
         EX_WriteReg <= WriteReg;
@@ -120,7 +124,7 @@ module top(
     wire [31:0] result;
     wire is_zero;
 
-    wire [31:0] alu_src_B = EX_ALUsrcB ? EX_immed : EX_B,
+    wire [31:0] alu_src_B = EX_ALUSrcB ? EX_immed : EX_B;
     wire [4:0]  shamt = EX_I[10:6];
 
     ALU alu0(EX_A, alu_src_B, aluc_sig, shamt, result, is_zero);
@@ -128,7 +132,7 @@ module top(
     // regs
     reg [4:0] MEM_reg_dst, WB_reg_dst;
     reg [31:0] MEM_I, MEM_S, MEM_B;
-    reg MEM_MemWrite, MEM_WriteReg, MEM_MemToReg, MEM_S_is_zero;
+    reg MEM_MemWrite, MEM_S_is_zero;
 
     always @(posedge clk) begin
         MEM_I <= EX_I;
@@ -148,11 +152,11 @@ module top(
     /* ------ mem stage ------- */
 
     // branch
-    {branch, invBranch, jump} = MEM_branch_sig;
+    assign {branch, invBranch, jump} = MEM_branch_sig;
 
     // Data Memory
     wire [31:0] mem_data;
-    c_data_mem data1(
+    DataMem data1(
         .addra(MEM_S), // Bus [8 : 0]
         .dina(MEM_B), // Bus [31 : 0]
         .clka(clk),
@@ -161,7 +165,6 @@ module top(
 
     // regs
     reg [31:0] WB_I, WB_mem_data, WB_S;
-    reg WB_WriteReg, WB_MemToReg;
 
     always @(posedge clk) begin
         WB_I <= MEM_I;
