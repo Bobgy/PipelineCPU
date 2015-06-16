@@ -158,7 +158,7 @@ module top(
     wire [31:0] mem_data;
     DataMem data1(
         .addra(MEM_S), // Bus [8 : 0]
-        .dina(MEM_B), // Bus [31 : 0]
+        .dina(MEM_B),  // Bus [31 : 0]
         .clka(clk),
         .wea(MEM_MemWrite),
         .douta(mem_data)); // Bus [31 : 0]
