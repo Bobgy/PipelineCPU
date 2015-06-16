@@ -1,0 +1,41 @@
+memory_initialization_radix = 16;
+memory_initialization_vector =
+20100005,
+30110000,
+36310003,
+02119020,
+02119822,
+0211a024,
+0211a825,
+00108082,
+001087c0,
+001087c3,
+ac120000,
+8c130000,
+2252ffff,
+12530002,
+22520001,
+0800000d,
+16530002,
+2272ffff,
+08000010;
+
+;0 	addi  $s0, $zero, 5     ; R16==R0+5 == 5
+;1	andi  $s1, $zero, 0     ; R17==R0&3 == 0
+;2	ori   $s1, $s1, 3       ; R17==3
+;3	add   $s2, $s0, $s1     ; R18==8
+;4	sub   $s3, $s0, $s1     ; R19==2
+;5	and   $s4, $s0, $s1     ; R20==1
+;6	or    $s5, $s0, $s1     ; R21==7
+;7	srl   $s0, $s0, 2       ; R16==1
+;8	sll   $s0, $s0, 31      ; R16==32'h8000000
+;9	sra   $s0, $s0, 31      ; R16==32'hffffffff
+;A	sw    $s2, 0($zero)
+;B	lw    $s3, 0($zero)     ; R19==R18 ==8
+;C	subi  $s2, $s2, 1       ; R18==7
+;D JUMP:beq   $s2, $s3, 2       ; 1st. no jumping, 2nd.jump to the line of bne
+;E      addi  $s2, $s2, 1       ; execut at the 1st time
+;F      j     JUMP              ; back to beq
+;10 JAL:bne   $s2, $s3, 2       ; 1st. no jumping, 2nd. jump to the line of jr
+;11     subi  $s2, $s3, 1  
+;12     j     JAL               ; jump to the line of bne
