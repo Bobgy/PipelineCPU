@@ -39,7 +39,7 @@ module top(
     /* --------- if stage ---------- */
 
     wire [31:0] I;
-    wire [8:0] i_pc, branch_dst;
+    wire [8:0] i_pc, branch_dst, o_pc;
 
     ProgramCounter #(9) pc0(~clk, rst, i_pc, o_pc);
     // branch and jump
@@ -48,7 +48,7 @@ module top(
     assign branch_dst = (branch & (MEM_S_is_zero ^ invBranch)) ? MEM_NPC : next_pc;
     assign i_pc = jump ? MEM_I[25:0] : branch_dst;
 
-    InstructionMemory instr_mem(.addra(o_pc), .clka(clk), .douta(I));
+    InstrMem instr_mem(.addra(o_pc), .clka(clk), .douta(I), .wea(1'b0), .dina(32'b0));
 
     // regs
     reg [31:0] ID_PC, ID_I;
@@ -74,15 +74,15 @@ module top(
     wire [31:0] A, B, C, immed, data_write;
     wire [4:0] reg_write, reg_disp;
 
-    assign disp_addr = {debpb1, SW}; // for debug
-	
+    assign reg_disp = {debpb1, SW}; // for debug
+	 reg [4:0] WB_reg_dst; //assigned in MEM stage
     reg EX_WriteReg, MEM_WriteReg, WB_WriteReg;
     RegFile reg_file(.clk(~clk), .rst(rst), .regA(ID_I[25:21]), .regB(ID_I[20:16]),
-                .regW(WB_RegDst), .Wdat(data_write), .Adat(A), .Bdat(B),
+                .regW(WB_reg_dst), .Wdat(data_write), .Adat(A), .Bdat(B),
                 .RegWrite(WB_WriteReg), .regC(reg_disp), .Cdat(C));
 
     // extension
-    Extension ext(.zero(ZeroExtend), .i_16(ID_I[15:0]), .o_32(immed));
+    Extension ext(.zero(ZeroExt), .i_16(ID_I[15:0]), .o_32(immed));
 
     // regs
     reg [31:0] EX_I, EX_A, EX_B, EX_immed;
@@ -130,7 +130,7 @@ module top(
     ALU alu0(EX_A, alu_src_B, aluc_sig, shamt, result, is_zero);
 
     // regs
-    reg [4:0] MEM_reg_dst, WB_reg_dst;
+    reg [4:0] MEM_reg_dst;
     reg [31:0] MEM_I, MEM_S, MEM_B;
     reg MEM_MemWrite, MEM_S_is_zero;
 
@@ -144,8 +144,8 @@ module top(
 
         //signals
         MEM_MemWrite <= EX_MemWrite;
-        MEM_WriteReg <= WriteReg;
-        MEM_MemToReg <= MemToReg;
+        MEM_WriteReg <= EX_WriteReg;
+        MEM_MemToReg <= EX_MemToReg;
         MEM_branch_sig <= EX_branch_sig;
     end
 
@@ -173,8 +173,8 @@ module top(
         WB_reg_dst <= MEM_reg_dst;
 
         //signals
-        WB_WriteReg <= WriteReg;
-        WB_MemToReg <= MemToReg;
+        WB_WriteReg <= MEM_WriteReg;
+        WB_MemToReg <= MEM_MemToReg;
     end
 
     /* ----- wb stage ----- */
@@ -183,13 +183,9 @@ module top(
 
     /* ----- display ----- */
 
-    reg [31:0] disp_code;
-    reg [15:0] cnt;
+    reg [31:0] cnt;
     always @(posedge clk or posedge rst)
-        cnt <= rst ? 0 : cnt+1;
-    always @* begin
-        disp_code <= C;
-    end
+        cnt <= rst ? 0 : cnt+32'b1;
 
     assign LED[0] = SW[0];
     assign LED[1] = SW[1];

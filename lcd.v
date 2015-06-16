@@ -29,7 +29,7 @@ always@(posedge CCLK)
 			end
 			
 		else
-			lcdcount=lcdcount+1;
+			lcdcount=lcdcount+19'b1;
 					
 //reset LCD
  

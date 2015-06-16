@@ -37,5 +37,5 @@ ac120000,
 ;E      addi  $s2, $s2, 1       ; execut at the 1st time
 ;F      j     JUMP              ; back to beq
 ;10 JAL:bne   $s2, $s3, 2       ; 1st. no jumping, 2nd. jump to the line of jr
-;11     subi  $s2, $s3, 1  
+;11     subi  $s2, $s3, 1
 ;12     j     JAL               ; jump to the line of bne
