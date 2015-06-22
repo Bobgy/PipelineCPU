@@ -1,19 +1,19 @@
 `timescale 1ns / 1ps
-module RegFile(clk, rst, regA, regB, regW, Wdat, Adat, Bdat, RegWrite, regC, Cdat);   //�Ĵ���
-	input clk, rst, RegWrite;               //д��ѡ���ź�
-	input [4:0] regA, regB, regW, regC;          //Դ�Ĵ�����Ŀ�ļĴ����ĵ�ַ
-	input [31:0] Wdat;  //д��Ŀ�ļĴ���������
-	output [31:0] Adat, Bdat, Cdat; //��Դ�Ĵ����ж�������������
-	
+module RegFile(clk, rst, regA, regB, regW, Wdat, Adat, Bdat, RegWrite, regC, Cdat);
+	input clk, rst, RegWrite;
+	input [4:0] regA, regB, regW, regC;
+	input [31:0] Wdat;
+	output [31:0] Adat, Bdat, Cdat;
+
 	reg[31:0] r[31:0];
-	reg[5:0] t; //��ʼ����ѭ������
-	always @(posedge clk or posedge rst)begin //��clk�����أ���д���ź�Ϊ1��ʱ��д���Ĵ�����
+	reg[5:0] t;
+	always @(posedge clk or posedge rst)begin
 		if(rst)begin
 			for(t=0; t<32; t=t+1)
 				r[t]=0;
 		end else if(RegWrite)
 			r[regW]=Wdat;
 	end
-	assign Adat=r[regA], Bdat=r[regB]; //�Ѷ�Ӧ���ŵļĴ�������
-	assign Cdat=r[regC]; //Ϊ�˲���
+	assign Adat=r[regA], Bdat=r[regB];
+	assign Cdat=r[regC];
 endmodule

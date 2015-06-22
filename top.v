@@ -23,13 +23,18 @@ module top(
            LCDRW=rwlcd,
            LCDE=elcd;
 
-    display M0 (CCLK, clk_lcd_ref, strdata, rslcd, rwlcd, elcd, lcdd);
+    display M0(CCLK, clk_lcd_ref, strdata, rslcd, rwlcd, elcd, lcdd);
 
-    clock clock0 (CCLK, 25000, clk_lcd);
-    clock clock1 (CCLK, 5000000, clk_lcd_ref);
+    clock clock0(CCLK, 25000, clk_lcd);
+    clock clock1(CCLK, 5000000, clk_lcd_ref);
+
+    /*
     pbdebounce_lcd pbd1 (clk_lcd, BTN[1], debpb1);     //EAST
     pbdebounce_lcd pbd2 (clk_lcd, BTN[2], clk);        //SOUTH
     pbdebounce_lcd pbd3 (clk_lcd, BTN[3], rst);        //WEST
+     */
+    assign clk = BTN[2], rst = BTN[3];
+    //for simulation
 
     /* --------- stages -------- */
 
@@ -39,24 +44,23 @@ module top(
     /* --------- if stage ---------- */
 
     wire [31:0] I;
-    wire [8:0] i_pc, branch_dst, o_pc;
+    wire [8:0] i_pc, branch_dst, o_pc, next_pc;
 
-    ProgramCounter #(9) pc0(~clk, rst, i_pc, o_pc);
+    ProgramCounter #(9) pc0(clk, rst, i_pc, o_pc);
     // branch and jump
     assign next_pc = o_pc + 1;
     wire branch, invBranch, jump; // assigned in MEM stage
     assign branch_dst = (branch & (MEM_S_is_zero ^ invBranch)) ? MEM_NPC : next_pc;
     assign i_pc = jump ? MEM_I[25:0] : branch_dst;
 
-    InstrMem instr_mem(.addra(o_pc), .clka(clk), .douta(I), .wea(1'b0), .dina(32'b0));
+    InstrMem instr_mem(.addra(i_pc), .clka(clk), .douta(I), .wea(1'b0), .dina(32'b0));
 
     // regs
-    reg [31:0] ID_PC, ID_I;
+    reg [31:0] ID_I=0;
     reg [31:0] ID_NPC, EX_NPC, MEM_NPC;
 
     always @(posedge clk) begin
-        ID_PC  <= o_pc;
-        ID_I   <= I;
+        ID_I   <= rst ? 0 : I;
         ID_NPC <= next_pc;
     end
 
@@ -66,39 +70,36 @@ module top(
     // related to cpu_controller
     wire [11:0] sig;
 
-    CpuController cpu_ctrl(.op(ID_PC[31:26]), .sig(sig));
+    CpuController cpu_ctrl(.op(ID_I[31:26]), .sig(sig));
     wire `ctrl_sig;
     assign {`ctrl_sig} = sig;
 
     // related to regfile
     wire [31:0] A, B, C, immed, data_write;
-    wire [4:0] reg_write, reg_disp;
+    wire [4:0] reg_disp;
 
     assign reg_disp = {debpb1, SW}; // for debug
-	 reg [4:0] WB_reg_dst; //assigned in MEM stage
+    reg [4:0] WB_reg_dst; //assigned in MEM stage
     reg EX_WriteReg, MEM_WriteReg, WB_WriteReg;
-    RegFile reg_file(.clk(~clk), .rst(rst), .regA(ID_I[25:21]), .regB(ID_I[20:16]),
-                .regW(WB_reg_dst), .Wdat(data_write), .Adat(A), .Bdat(B),
-                .RegWrite(WB_WriteReg), .regC(reg_disp), .Cdat(C));
+    RegFile reg_file(.clk(~clk), .rst(rst), .regA(ID_I[25:21]),
+        .regB(ID_I[20:16]), .regW(WB_reg_dst), .Wdat(data_write),
+        .Adat(A), .Bdat(B), .RegWrite(WB_WriteReg),
+        .regC(reg_disp), .Cdat(C));
 
     // extension
     Extension ext(.zero(ZeroExt), .i_16(ID_I[15:0]), .o_32(immed));
 
     // regs
-    reg [31:0] EX_I, EX_A, EX_B, EX_immed;
+    reg [31:0] EX_I=0, EX_A, EX_B, EX_immed;
 
     reg EX_ALUSrcB, EX_MemWrite, EX_RegDst;
-	 reg EX_MemToReg, MEM_MemToReg, WB_MemToReg;
-	 
-    reg [2:0] EX_branch_sig, MEM_branch_sig;
+    reg EX_MemToReg, MEM_MemToReg, WB_MemToReg;
 
-    reg EX_Branch, MEM_Branch;
-    reg EX_InvBranch, MEM_InvBranch;
-    reg EX_Jump, MEM_Jump;
+    reg [2:0] EX_branch_sig, MEM_branch_sig;
     reg [2:0] EX_ALUop;
 
     always @(posedge clk) begin
-        EX_I <= ID_I;
+        EX_I <= rst ? 0 : ID_I;
         EX_A <= A;
         EX_B <= B;
         EX_immed <= immed;
@@ -131,14 +132,14 @@ module top(
 
     // regs
     reg [4:0] MEM_reg_dst;
-    reg [31:0] MEM_I, MEM_S, MEM_B;
+    reg [31:0] MEM_I=0, MEM_S, MEM_B;
     reg MEM_MemWrite, MEM_S_is_zero;
 
     always @(posedge clk) begin
-        MEM_I <= EX_I;
+        MEM_I <= rst ? 0 : EX_I;
         MEM_B <= EX_B;
         MEM_S <= result;
-        MEM_reg_dst <= EX_RegDst ? WB_I[15:11] : WB_I[20:16];
+        MEM_reg_dst <= EX_RegDst ? EX_I[15:11] : EX_I[20:16];
         MEM_NPC <= EX_NPC + EX_immed;
         MEM_S_is_zero <= is_zero;
 
@@ -164,10 +165,10 @@ module top(
         .douta(mem_data)); // Bus [31 : 0]
 
     // regs
-    reg [31:0] WB_I, WB_mem_data, WB_S;
+    reg [31:0] WB_I=0, WB_mem_data, WB_S;
 
     always @(posedge clk) begin
-        WB_I <= MEM_I;
+        WB_I <= rst ? 0 : MEM_I;
         WB_mem_data <= mem_data;
         WB_S <= MEM_S;
         WB_reg_dst <= MEM_reg_dst;
