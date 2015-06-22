@@ -9,14 +9,14 @@ module CpuController(
     wire `ctrl_sig;
 
     assign  R    = op==6'b000_000,
-	        LW   = op==6'b100_011,
-	        SW   = op==6'b101_011,
-	        BEQ  = op==6'b000_100,
-	        BNE  = op==6'b000_101,
-	        JMP  = op==6'b000_010,
-	        ADDI = op==6'b001_000,
-	        ANDI = op==6'b001_100,
-	        ORI  = op==6'b001_101;
+            LW   = op==6'b100_011,
+            SW   = op==6'b101_011,
+            BEQ  = op==6'b000_100,
+            BNE  = op==6'b000_101,
+            JMP  = op==6'b000_010,
+            ADDI = op==6'b001_000,
+            ANDI = op==6'b001_100,
+            ORI  = op==6'b001_101;
 
     assign  ALUop2     = ANDI|ORI,
             InvBranch  = BNE,

@@ -15,7 +15,8 @@ module top(
     wire rslcd, rwlcd, elcd;
     wire debpb1, clk_lcd, clk_lcd_ref;
 
-    reg [255:0] strdata = "P:3456I:12345678C:3456R:12345678";
+    reg [63:0] str0 = "12345678", str1 = "87654321";
+    reg [127:0] str2 = "FD06|E03|M07|W0A";
     reg [3:0] temp=0;
 
     assign LCDDAT=lcdd,
@@ -23,18 +24,17 @@ module top(
            LCDRW=rwlcd,
            LCDE=elcd;
 
-    display M0(CCLK, clk_lcd_ref, strdata, rslcd, rwlcd, elcd, lcdd);
+    display M0(CCLK, clk_lcd_ref, {str0, str1, str2}, rslcd, rwlcd, elcd, lcdd);
 
     clock clock0(CCLK, 25000, clk_lcd);
     clock clock1(CCLK, 5000000, clk_lcd_ref);
 
-    /*
     pbdebounce_lcd pbd1 (clk_lcd, BTN[1], debpb1);     //EAST
     pbdebounce_lcd pbd2 (clk_lcd, BTN[2], clk);        //SOUTH
     pbdebounce_lcd pbd3 (clk_lcd, BTN[3], rst);        //WEST
-     */
-    assign clk = BTN[2], rst = BTN[3];
+
     //for simulation
+    //assign clk = BTN[2], rst = BTN[3];
 
     /* --------- stages -------- */
 
@@ -197,18 +197,24 @@ module top(
     assign LED[6] = cnt[0];
     assign LED[7] = cnt[1];
 
-    wire [63:0] reg_asc, cnt_asc, pc_asc, I_asc;
+    wire [63:0] reg_asc, I_asc;
+    wire [15:0] ID_type_asc, EX_type_asc, MEM_type_asc, WB_type_asc;
 
     bin2asc_32  b2a0(C, reg_asc),
-                b2a1(cnt, cnt_asc),
-                b2a2(o_pc, pc_asc),
-                b2a3(I, I_asc);
+                b2a1(ID_I, I_asc);
 
-    always @(posedge clk_lcd) begin
-        strdata[63:0] <= reg_asc;
-        strdata[111:80] <= cnt_asc;
-        strdata[239:208] <= pc_asc;
-        strdata[191:128] <= I_asc;
+    ParseType prsTp0(ID_I, ID_type_asc),
+              prsTp1(EX_I, EX_type_asc),
+              prsTp2(MEM_I, MEM_type_asc),
+              prsTp3(WB_I, WB_type_asc);
+
+    always @* begin
+        str0 <= I_asc;
+        str1 <= reg_asc;
+        str2[15:0] <= WB_type_asc;
+        str2[47:32] <= MEM_type_asc;
+        str2[79:64] <= EX_type_asc;
+        str2[111:96] <= ID_type_asc;
     end
 
 endmodule
