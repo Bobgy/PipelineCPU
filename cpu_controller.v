@@ -20,7 +20,7 @@ module CpuController(
 
     assign  ALUop2     = ANDI|ORI,
             InvBranch  = BNE,
-            ZeroExt = ANDI|ORI,
+            ZeroExt    = ANDI|ORI,
             RegDst     = R,
             ALUSrcB    = LW|SW|ADDI|ANDI|ORI,
             MemToReg   = LW,

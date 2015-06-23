@@ -30,11 +30,11 @@ module top(
     clock clock1(CCLK, 5000000, clk_lcd_ref);
 
     pbdebounce_lcd pbd1 (clk_lcd, BTN[1], debpb1);     //EAST
-    pbdebounce_lcd pbd2 (clk_lcd, BTN[2], clk);        //SOUTH
-    pbdebounce_lcd pbd3 (clk_lcd, BTN[3], rst);        //WEST
+    //pbdebounce_lcd pbd2 (clk_lcd, BTN[2], clk);        //SOUTH
+    //pbdebounce_lcd pbd3 (clk_lcd, BTN[3], rst);        //WEST
 
     //for simulation
-    //assign clk = BTN[2], rst = BTN[3];
+    assign clk = BTN[2], rst = BTN[3];
 
     /* --------- stages -------- */
 
@@ -44,26 +44,34 @@ module top(
     reg [31:0] EX_B, MEM_B;
     reg EX_MemToReg, MEM_MemToReg, WB_MemToReg;
     reg [2:0] EX_branch_sig, MEM_branch_sig;
-    reg [4:0] MEM_reg_dst, WB_reg_dst;
+    reg [4:0] EX_reg_dst, MEM_reg_dst, WB_reg_dst;
     reg EX_WriteReg, WB_WriteReg, MEM_WriteReg;
     reg [31:0] MEM_S, WB_S;
 
     // regs alone
-    reg EX_ALUSrcB, EX_MemWrite, EX_RegDst;
+    reg EX_ALUSrcB, EX_MemWrite;
     reg [2:0] EX_ALUop;
     reg [31:0] EX_A, EX_immed;
     reg MEM_MemWrite, MEM_S_is_zero;
     reg [31:0] WB_mem_data;
+    reg EX_Bubble, MEM_Bubble, WB_Bubble;
+
+    // signals
+    wire stall, EX_data_hazard, MEM_data_hazard;
 
     /* --------- if stage ---------- */
 
     wire [31:0] I;
     wire [8:0] i_pc, branch_dst, o_pc, next_pc;
 
-    ProgramCounter #(9) pc0(clk, rst, i_pc, o_pc);
-    // branch and jump
-    assign next_pc = o_pc + 1;
+    ProgramCounter #(9) pc0(
+        .clk(clk), .rst(rst), .lock(stall),
+        .i_pc(i_pc), .o_pc(o_pc)
+    );
+
     wire branch, invBranch, jump; // assigned in MEM stage
+    // branch and jump
+    assign next_pc = stall ? o_pc : o_pc + 1;
     assign branch_dst = (branch & (MEM_S_is_zero ^ invBranch)) ? MEM_NPC : next_pc;
     assign i_pc = jump ? MEM_I[25:0] : branch_dst;
 
@@ -91,6 +99,23 @@ module top(
     wire [31:0] A, B, C, immed, data_write;
     wire [4:0] reg_disp;
 
+    wire [4:0] rs, rt;
+    wire readRs, readRt;
+    InstrRegRead instrRegRead0(
+        .I(ID_I),
+        .rs(rs), .readRs(readRs),
+        .rt(rt), .readRt(readRt)
+    );
+
+    assign EX_data_hazard = EX_WriteReg && !EX_Bubble
+           && ((EX_reg_dst == rs && readRs)
+               || (EX_reg_dst == rt && readRt));
+    assign MEM_data_hazard = MEM_WriteReg && !MEM_Bubble
+           && ((MEM_reg_dst == rs && readRs)
+               || (MEM_reg_dst == rt && readRt));
+
+    assign stall = EX_data_hazard || MEM_data_hazard;
+
     assign reg_disp = {debpb1, SW}; // for debug
     RegFile reg_file(.clk(~clk), .rst(rst), .regA(ID_I[25:21]),
         .regB(ID_I[20:16]), .regW(WB_reg_dst), .Wdat(data_write),
@@ -100,27 +125,27 @@ module top(
     // extension
     Extension ext(.zero(ZeroExt), .i_16(ID_I[15:0]), .o_32(immed));
 
-    `define EX_Signals EX_ALUSrcB, EX_ALUop, EX_MemWrite, EX_MemToReg, EX_RegDst, EX_branch_sig
-
-    always @(posedge clk or posedge rst) begin
-        if (rst) begin
+    always @(posedge clk) begin
+        if (rst || stall) begin
             {EX_I, EX_A, EX_B, EX_immed, EX_NPC} <= 0;
             {EX_ALUSrcB, EX_ALUop, EX_MemWrite} <= 0;
-            {EX_MemToReg, EX_RegDst, EX_branch_sig} <= 0;
+            {EX_MemToReg, EX_reg_dst, EX_branch_sig} <= 0;
+            EX_Bubble <= 1;
         end else begin
             EX_I <= ID_I;
             EX_A <= A;
             EX_B <= B;
             EX_immed <= immed;
             EX_NPC <= ID_NPC;
+            EX_reg_dst <= RegDst ? ID_I[15:11] : ID_I[20:16];
             // signals
             EX_ALUSrcB <= ALUSrcB;
             EX_ALUop <= {ALUop2, ALUop1, ALUop0};
             EX_MemWrite <= MemWrite;
             EX_WriteReg <= WriteReg;
             EX_MemToReg <= MemToReg;
-            EX_RegDst <= RegDst;
             EX_branch_sig <= {Branch, InvBranch, Jump};
+            EX_Bubble <= 0;
         end
     end
 
@@ -143,11 +168,12 @@ module top(
         if (rst) begin
             {MEM_I, MEM_B, MEM_S, MEM_reg_dst, MEM_NPC, MEM_S_is_zero} <= 0;
             {MEM_MemWrite, MEM_WriteReg, MEM_MemToReg, MEM_branch_sig} <= 0;
+            MEM_Bubble <= 1;
         end else begin
             MEM_I <= EX_I;
             MEM_B <= EX_B;
             MEM_S <= result;
-            MEM_reg_dst <= EX_RegDst ? EX_I[15:11] : EX_I[20:16];
+            MEM_reg_dst <= EX_reg_dst;
             MEM_NPC <= EX_NPC + EX_immed;
             MEM_S_is_zero <= is_zero;
             //signals
@@ -155,6 +181,7 @@ module top(
             MEM_WriteReg <= EX_WriteReg;
             MEM_MemToReg <= EX_MemToReg;
             MEM_branch_sig <= EX_branch_sig;
+            MEM_Bubble <= EX_Bubble;
         end
     end
 
@@ -177,15 +204,16 @@ module top(
         if (rst) begin
             {WB_I, WB_mem_data, WB_S, WB_reg_dst} <= 0;
             {WB_WriteReg, WB_MemToReg} <= 0;
+            WB_Bubble <= 1;
         end else begin
             WB_I <= MEM_I;
             WB_mem_data <= mem_data;
             WB_S <= MEM_S;
             WB_reg_dst <= MEM_reg_dst;
-
             //signals
             WB_WriteReg <= MEM_WriteReg; // Write
             WB_MemToReg <= MEM_MemToReg;
+            WB_Bubble <= MEM_Bubble;
         end
     end
 

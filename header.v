@@ -11,3 +11,7 @@
 `define ADDI 6'b001_000
 `define ANDI 6'b001_100
 `define ORI  6'b001_101
+
+`define R_TYPE 0
+`define I_TYPE 1
+`define J_TYPE 2
