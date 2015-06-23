@@ -38,8 +38,22 @@ module top(
 
     /* --------- stages -------- */
 
-    //if_stage x_if_stage(.clk(clk), .rst(rst), pc, mem_pc, mem_branch,
-    //    IF_ins_type, IF_ins_number,ID_ins_type,ID_ins_number);
+    // regs in group
+    reg [31:0] ID_I=0, EX_I=0, MEM_I=0, WB_I=0;
+    reg [31:0] ID_NPC, EX_NPC, MEM_NPC;
+    reg [31:0] EX_B, MEM_B;
+    reg EX_MemToReg, MEM_MemToReg, WB_MemToReg;
+    reg [2:0] EX_branch_sig, MEM_branch_sig;
+    reg [4:0] MEM_reg_dst, WB_reg_dst;
+    reg EX_WriteReg, WB_WriteReg, MEM_WriteReg;
+    reg [31:0] MEM_S, WB_S;
+
+    // regs alone
+    reg EX_ALUSrcB, EX_MemWrite, EX_RegDst;
+    reg [2:0] EX_ALUop;
+    reg [31:0] EX_A, EX_immed;
+    reg MEM_MemWrite, MEM_S_is_zero;
+    reg [31:0] WB_mem_data;
 
     /* --------- if stage ---------- */
 
@@ -53,17 +67,12 @@ module top(
     assign branch_dst = (branch & (MEM_S_is_zero ^ invBranch)) ? MEM_NPC : next_pc;
     assign i_pc = jump ? MEM_I[25:0] : branch_dst;
 
-    InstrMem instr_mem(.addra(i_pc), .clka(clk), .douta(I), .wea(1'b0), .dina(32'b0));
-
-    // regs
-    reg [31:0] ID_I=0;
-    reg [31:0] ID_NPC, EX_NPC, MEM_NPC;
+    InstrMem instr_mem(.addra(o_pc), .clka(~clk), .douta(I));
 
     always @(posedge clk) begin
         ID_I   <= rst ? 0 : I;
         ID_NPC <= next_pc;
     end
-
 
     /* ------ id stage ------ */
 
@@ -79,8 +88,6 @@ module top(
     wire [4:0] reg_disp;
 
     assign reg_disp = {debpb1, SW}; // for debug
-    reg [4:0] WB_reg_dst; //assigned in MEM stage
-    reg EX_WriteReg, MEM_WriteReg, WB_WriteReg;
     RegFile reg_file(.clk(~clk), .rst(rst), .regA(ID_I[25:21]),
         .regB(ID_I[20:16]), .regW(WB_reg_dst), .Wdat(data_write),
         .Adat(A), .Bdat(B), .RegWrite(WB_WriteReg),
@@ -88,15 +95,6 @@ module top(
 
     // extension
     Extension ext(.zero(ZeroExt), .i_16(ID_I[15:0]), .o_32(immed));
-
-    // regs
-    reg [31:0] EX_I=0, EX_A, EX_B, EX_immed;
-
-    reg EX_ALUSrcB, EX_MemWrite, EX_RegDst;
-    reg EX_MemToReg, MEM_MemToReg, WB_MemToReg;
-
-    reg [2:0] EX_branch_sig, MEM_branch_sig;
-    reg [2:0] EX_ALUop;
 
     always @(posedge clk) begin
         EX_I <= rst ? 0 : ID_I;
@@ -130,11 +128,6 @@ module top(
 
     ALU alu0(EX_A, alu_src_B, aluc_sig, shamt, result, is_zero);
 
-    // regs
-    reg [4:0] MEM_reg_dst;
-    reg [31:0] MEM_I=0, MEM_S, MEM_B;
-    reg MEM_MemWrite, MEM_S_is_zero;
-
     always @(posedge clk) begin
         MEM_I <= rst ? 0 : EX_I;
         MEM_B <= EX_B;
@@ -160,12 +153,10 @@ module top(
     DataMem data1(
         .addra(MEM_S), // Bus [8 : 0]
         .dina(MEM_B),  // Bus [31 : 0]
-        .clka(clk),
+        .clka(~clk),
         .wea(MEM_MemWrite),
         .douta(mem_data)); // Bus [31 : 0]
 
-    // regs
-    reg [31:0] WB_I=0, WB_mem_data, WB_S;
 
     always @(posedge clk) begin
         WB_I <= rst ? 0 : MEM_I;
