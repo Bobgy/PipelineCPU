@@ -16,6 +16,7 @@ module ParseType(
             `ADDI : tp <= 6;
             `ANDI : tp <= 7;
             `ORI  : tp <= 8;
+            default : tp <= -1;
         endcase
     end
     bin2asc b2a0(tp[3:0], type[7:0]),

@@ -69,9 +69,13 @@ module top(
 
     InstrMem instr_mem(.addra(o_pc), .clka(~clk), .douta(I));
 
-    always @(posedge clk) begin
-        ID_I   <= rst ? 0 : I;
-        ID_NPC <= next_pc;
+    always @(posedge clk or posedge rst) begin
+        if (rst)  begin
+            {ID_I, ID_NPC} <= 0;
+        end else begin
+            ID_I   <= I;
+            ID_NPC <= next_pc;
+        end
     end
 
     /* ------ id stage ------ */
@@ -96,21 +100,28 @@ module top(
     // extension
     Extension ext(.zero(ZeroExt), .i_16(ID_I[15:0]), .o_32(immed));
 
-    always @(posedge clk) begin
-        EX_I <= rst ? 0 : ID_I;
-        EX_A <= A;
-        EX_B <= B;
-        EX_immed <= immed;
-        EX_NPC <= ID_NPC;
+    `define EX_Signals EX_ALUSrcB, EX_ALUop, EX_MemWrite, EX_MemToReg, EX_RegDst, EX_branch_sig
 
-        // signals
-        EX_ALUSrcB <= ALUSrcB;
-        EX_ALUop <= {ALUop2, ALUop1, ALUop0};
-        EX_MemWrite <= MemWrite;
-        EX_WriteReg <= WriteReg;
-        EX_MemToReg <= MemToReg;
-        EX_RegDst <= RegDst;
-        EX_branch_sig <= {Branch, InvBranch, Jump};
+    always @(posedge clk or posedge rst) begin
+        if (rst) begin
+            {EX_I, EX_A, EX_B, EX_immed, EX_NPC} <= 0;
+            {EX_ALUSrcB, EX_ALUop, EX_MemWrite} <= 0;
+            {EX_MemToReg, EX_RegDst, EX_branch_sig} <= 0;
+        end else begin
+            EX_I <= ID_I;
+            EX_A <= A;
+            EX_B <= B;
+            EX_immed <= immed;
+            EX_NPC <= ID_NPC;
+            // signals
+            EX_ALUSrcB <= ALUSrcB;
+            EX_ALUop <= {ALUop2, ALUop1, ALUop0};
+            EX_MemWrite <= MemWrite;
+            EX_WriteReg <= WriteReg;
+            EX_MemToReg <= MemToReg;
+            EX_RegDst <= RegDst;
+            EX_branch_sig <= {Branch, InvBranch, Jump};
+        end
     end
 
     /* ------- ex stage ------- */
@@ -128,19 +139,23 @@ module top(
 
     ALU alu0(EX_A, alu_src_B, aluc_sig, shamt, result, is_zero);
 
-    always @(posedge clk) begin
-        MEM_I <= rst ? 0 : EX_I;
-        MEM_B <= EX_B;
-        MEM_S <= result;
-        MEM_reg_dst <= EX_RegDst ? EX_I[15:11] : EX_I[20:16];
-        MEM_NPC <= EX_NPC + EX_immed;
-        MEM_S_is_zero <= is_zero;
-
-        //signals
-        MEM_MemWrite <= EX_MemWrite;
-        MEM_WriteReg <= EX_WriteReg;
-        MEM_MemToReg <= EX_MemToReg;
-        MEM_branch_sig <= EX_branch_sig;
+    always @(posedge clk or posedge rst) begin
+        if (rst) begin
+            {MEM_I, MEM_B, MEM_S, MEM_reg_dst, MEM_NPC, MEM_S_is_zero} <= 0;
+            {MEM_MemWrite, MEM_WriteReg, MEM_MemToReg, MEM_branch_sig} <= 0;
+        end else begin
+            MEM_I <= EX_I;
+            MEM_B <= EX_B;
+            MEM_S <= result;
+            MEM_reg_dst <= EX_RegDst ? EX_I[15:11] : EX_I[20:16];
+            MEM_NPC <= EX_NPC + EX_immed;
+            MEM_S_is_zero <= is_zero;
+            //signals
+            MEM_MemWrite <= EX_MemWrite;
+            MEM_WriteReg <= EX_WriteReg;
+            MEM_MemToReg <= EX_MemToReg;
+            MEM_branch_sig <= EX_branch_sig;
+        end
     end
 
     /* ------ mem stage ------- */
@@ -158,15 +173,20 @@ module top(
         .douta(mem_data)); // Bus [31 : 0]
 
 
-    always @(posedge clk) begin
-        WB_I <= rst ? 0 : MEM_I;
-        WB_mem_data <= mem_data;
-        WB_S <= MEM_S;
-        WB_reg_dst <= MEM_reg_dst;
+    always @(posedge clk or posedge rst) begin
+        if (rst) begin
+            {WB_I, WB_mem_data, WB_S, WB_reg_dst} <= 0;
+            {WB_WriteReg, WB_MemToReg} <= 0;
+        end else begin
+            WB_I <= MEM_I;
+            WB_mem_data <= mem_data;
+            WB_S <= MEM_S;
+            WB_reg_dst <= MEM_reg_dst;
 
-        //signals
-        WB_WriteReg <= MEM_WriteReg;
-        WB_MemToReg <= MEM_MemToReg;
+            //signals
+            WB_WriteReg <= MEM_WriteReg; // Write
+            WB_MemToReg <= MEM_MemToReg;
+        end
     end
 
     /* ----- wb stage ----- */
@@ -179,14 +199,8 @@ module top(
     always @(posedge clk or posedge rst)
         cnt <= rst ? 0 : cnt+32'b1;
 
-    assign LED[0] = SW[0];
-    assign LED[1] = SW[1];
-    assign LED[2] = SW[2];
-    assign LED[3] = SW[3];
-    assign LED[4] = clk;
-    assign LED[5] = rst;
-    assign LED[6] = cnt[0];
-    assign LED[7] = cnt[1];
+    //assign LED = {1, clk, rst, debpb1, SW};
+    assign LED = {clk, rst, o_pc[5:0]};
 
     wire [63:0] reg_asc, I_asc;
     wire [15:0] ID_type_asc, EX_type_asc, MEM_type_asc, WB_type_asc;
@@ -199,7 +213,7 @@ module top(
               prsTp2(MEM_I, MEM_type_asc),
               prsTp3(WB_I, WB_type_asc);
 
-    always @* begin
+    always @(posedge clk_lcd) begin
         str0 <= I_asc;
         str1 <= reg_asc;
         str2[15:0] <= WB_type_asc;
