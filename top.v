@@ -65,7 +65,7 @@ module top(
     wire [8:0] i_pc, branch_dst, o_pc, next_pc;
 
     ProgramCounter #(9) pc0(
-        .clk(clk), .rst(rst), .lock(stall),
+        .clk(clk), .rst(rst),
         .i_pc(i_pc), .o_pc(o_pc)
     );
 
@@ -206,7 +206,7 @@ module top(
 
     // Data Memory
     wire [31:0] mem_data;
-    DataMem data1(
+    DataMem data_mem(
         .addra(MEM_S), // Bus [8 : 0]
         .dina(MEM_B),  // Bus [31 : 0]
         .clka(~clk),
