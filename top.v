@@ -30,11 +30,11 @@ module top(
     clock clock1(CCLK, 5000000, clk_lcd_ref);
 
     pbdebounce_lcd pbd1 (clk_lcd, BTN[1], debpb1);     //EAST
-    //pbdebounce_lcd pbd2 (clk_lcd, BTN[2], clk);        //SOUTH
-    //pbdebounce_lcd pbd3 (clk_lcd, BTN[3], rst);        //WEST
+    pbdebounce_lcd pbd2 (clk_lcd, BTN[2], clk);        //SOUTH
+    pbdebounce_lcd pbd3 (clk_lcd, BTN[3], rst);        //WEST
 
     //for simulation
-    assign clk = BTN[2], rst = BTN[3];
+    //assign clk = BTN[2], rst = BTN[3];
 
     /* --------- stages -------- */
 
@@ -54,7 +54,7 @@ module top(
     reg [31:0] EX_A, EX_immed;
     reg MEM_MemWrite, MEM_S_is_zero;
     reg [31:0] WB_mem_data;
-    reg EX_Bubble, MEM_Bubble, WB_Bubble;
+    reg ID_Bubble, EX_Bubble, MEM_Bubble, WB_Bubble;
 
     // signals
     wire stall, EX_data_hazard, MEM_data_hazard;
@@ -77,13 +77,26 @@ module top(
 
     InstrMem instr_mem(.addra(o_pc), .clka(~clk), .douta(I));
 
-    always @(posedge clk or posedge rst) begin
-        if (rst)  begin
-            {ID_I, ID_NPC} <= 0;
-        end else begin
-            ID_I   <= I;
-            ID_NPC <= next_pc;
-        end
+    always @(posedge clk) begin
+        casex({rst, stall})
+            // reset
+            2'b1x: begin
+                {ID_I, ID_NPC} <= 0;
+                ID_Bubble <= 1;
+            end
+            // stall
+            2'b01: begin
+                ID_I <= ID_I;
+                ID_NPC <= ID_NPC;
+                ID_Bubble <= ID_Bubble;
+            end
+            // clock
+            2'b00: begin
+                ID_I   <= I;
+                ID_NPC <= next_pc;
+                ID_Bubble <= 0;
+            end
+        endcase
     end
 
     /* ------ id stage ------ */
@@ -130,8 +143,9 @@ module top(
             {EX_I, EX_A, EX_B, EX_immed, EX_NPC} <= 0;
             {EX_ALUSrcB, EX_ALUop, EX_MemWrite} <= 0;
             {EX_MemToReg, EX_reg_dst, EX_branch_sig} <= 0;
+            {EX_WriteReg} <= 0;
             EX_Bubble <= 1;
-        end else begin
+		  end else begin
             EX_I <= ID_I;
             EX_A <= A;
             EX_B <= B;
@@ -145,7 +159,7 @@ module top(
             EX_WriteReg <= WriteReg;
             EX_MemToReg <= MemToReg;
             EX_branch_sig <= {Branch, InvBranch, Jump};
-            EX_Bubble <= 0;
+            EX_Bubble <= ID_Bubble;
         end
     end
 
@@ -236,12 +250,13 @@ module top(
     bin2asc_32  b2a0(C, reg_asc),
                 b2a1(ID_I, I_asc);
 
-    ParseType prsTp0(ID_I, ID_type_asc),
-              prsTp1(EX_I, EX_type_asc),
-              prsTp2(MEM_I, MEM_type_asc),
-              prsTp3(WB_I, WB_type_asc);
+    ParseType prsTp0(ID_I, ID_Bubble, ID_type_asc),
+              prsTp1(EX_I, EX_Bubble, EX_type_asc),
+              prsTp2(MEM_I, MEM_Bubble, MEM_type_asc),
+              prsTp3(WB_I, WB_Bubble, WB_type_asc);
 
-    always @(posedge clk_lcd) begin
+    //always @(posedge clk_lcd) begin
+    always @* begin
         str0 <= I_asc;
         str1 <= reg_asc;
         str2[15:0] <= WB_type_asc;

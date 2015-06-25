@@ -7,5 +7,5 @@ module ProgramCounter(clk, rst, lock, i_pc, o_pc);
 	reg[N-1:0] t_pc = 0;
 	assign o_pc = t_pc;
 	always @(posedge clk or posedge rst)
-		t_pc <= rst ? {N{1'b1}} : (lock ? t_pc : i_pc);
+		t_pc <= rst ? {N{1'b0}} : (lock ? t_pc : i_pc);
 endmodule
