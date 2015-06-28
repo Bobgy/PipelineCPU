@@ -25,3 +25,17 @@
 `define R_TYPE 0
 `define I_TYPE 1
 `define J_TYPE 2
+
+//Instruction structure
+`define OP 31:26
+`define RS 25:21
+`define RT 20:16
+`define RD 15:11
+`define SHAMT 10:6
+`define FN 5:0
+`define IMMED 15:0
+
+//readRx
+`define READ_NOTHING 2'b00
+`define READ_AT_EX 2'b01
+`define READ_AT_MEM 2'b10

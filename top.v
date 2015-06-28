@@ -109,34 +109,42 @@ module top(
     assign {`ctrl_sig} = sig;
 
     // related to regfile
-    wire [31:0] A, B, C, immed, data_write;
+    wire [31:0] A, B, C, immed, WB_data, MEM_data;
     wire [4:0] reg_disp;
 
-    wire [4:0] rs, rt;
     wire readRs, readRt;
     InstrRegRead instrRegRead0(
         .I(ID_I),
-        .rs(rs), .readRs(readRs),
-        .rt(rt), .readRt(readRt)
+        .readRs(readRs),
+        .readRt(readRt)
     );
 
+    /*
     assign EX_data_hazard = EX_WriteReg && !EX_Bubble
            && ((EX_reg_dst == rs && readRs)
                || (EX_reg_dst == rt && readRt));
     assign MEM_data_hazard = MEM_WriteReg && !MEM_Bubble
            && ((MEM_reg_dst == rs && readRs)
                || (MEM_reg_dst == rt && readRt));
+    */
 
-    assign stall = EX_data_hazard || MEM_data_hazard;
+    //assign stall = EX_data_hazard || MEM_data_hazard;
+    assign stall = !EX_Bubble
+                && EX_WriteReg
+                && EX_MemToReg
+                && (
+                    (EX_reg_dst==ID_I[`RS] && readRs==`READ_AT_EX)
+                 || (EX_reg_dst==ID_I[`RT] && readRt==`READ_AT_EX)
+                );
 
     assign reg_disp = {debpb1, SW}; // for debug
-    RegFile reg_file(.clk(~clk), .rst(rst), .regA(ID_I[25:21]),
-        .regB(ID_I[20:16]), .regW(WB_reg_dst), .Wdat(data_write),
+    RegFile reg_file(.clk(~clk), .rst(rst), .regA(ID_I[`RS]),
+        .regB(ID_I[`RT]), .regW(WB_reg_dst), .Wdat(WB_data),
         .Adat(A), .Bdat(B), .RegWrite(WB_WriteReg),
         .regC(reg_disp), .Cdat(C));
 
     // extension
-    Extension ext(.zero(ZeroExt), .i_16(ID_I[15:0]), .o_32(immed));
+    Extension ext(.zero(ZeroExt), .i_16(ID_I[`IMMED]), .o_32(immed));
 
     always @(posedge clk) begin
         if (rst || stall) begin
@@ -151,7 +159,7 @@ module top(
             EX_B <= B;
             EX_immed <= immed;
             EX_NPC <= ID_NPC;
-            EX_reg_dst <= RegDst ? ID_I[15:11] : ID_I[20:16];
+            EX_reg_dst <= RegDst ? ID_I[`RD] : ID_I[`RT];
             // signals
             EX_ALUSrcB <= ALUSrcB;
             EX_ALUop <= {ALUop2, ALUop1, ALUop0};
@@ -166,17 +174,61 @@ module top(
     /* ------- ex stage ------- */
 
     // ALU
-    wire [5:0] func = EX_I[5:0];
+    wire [5:0] func = EX_I[`FN];
     wire [2:0] aluc_sig;
     ALUCtrl aluc(.op(EX_ALUop), .sw(func), .aluc(aluc_sig));
 
     wire [31:0] result;
     wire is_zero;
 
-    wire [31:0] alu_src_B = EX_ALUSrcB ? EX_immed : EX_B;
-    wire [4:0]  shamt = EX_I[10:6];
+    wire [4:0]  shamt = EX_I[`SHAMT];
 
-    ALU alu0(EX_A, alu_src_B, aluc_sig, shamt, result, is_zero);
+    wire [31:0] alu_A_WB, alu_A_MEM;
+    Forward forward_alu_A_WB(
+        .data0(EX_A),
+        .data1(WB_data),
+        .bubble(WB_Bubble),
+        .write(WB_WriteReg),
+        .same_addr(WB_reg_dst==EX_I[`RS]),
+        .data(alu_A_WB)
+    );
+    Forward forward_alu_A_MEM(
+        .data0(alu_A_WB),
+        .data1(MEM_data),
+        .bubble(MEM_Bubble),
+        .write(MEM_WriteReg),
+        .same_addr(MEM_reg_dst==EX_I[`RS]),
+        .data(alu_A_MEM)
+    );
+
+    wire [31:0] alu_B_WB, alu_B_MEM;
+    Forward forward_alu_B_WB(
+        .data0(EX_B),
+        .data1(WB_data),
+        .bubble(WB_Bubble),
+        .write(WB_WriteReg),
+        .same_addr(WB_reg_dst==EX_I[`RS]),
+        .data(alu_B_WB)
+    );
+    Forward forward_alu_B_MEM(
+        .data0(alu_B_WB),
+        .data1(MEM_data),
+        .bubble(MEM_Bubble),
+        .write(MEM_WriteReg),
+        .same_addr(MEM_reg_dst==EX_I[`RS]),
+        .data(alu_B_MEM)
+    );
+
+    wire [31:0] alu_src_B = EX_ALUSrcB ? EX_immed : alu_B_MEM;
+
+    ALU alu0(
+        .A(alu_A_MEM),
+        .B(alu_src_B),
+        .op(aluc_sig),
+        .sa(shamt),
+        .res(result),
+        .o_zf(is_zero)
+    );
 
     always @(posedge clk or posedge rst) begin
         if (rst) begin
@@ -199,20 +251,33 @@ module top(
         end
     end
 
+    assign MEM_data = MEM_S;
+
     /* ------ mem stage ------- */
 
     // branch
     assign {branch, invBranch, jump} = MEM_branch_sig;
 
+    wire [31:0] mem_input_data;
+    Forward forward_mem(
+        .data0(MEM_B),
+        .data1(WB_data),
+        .bubble(WB_Bubble),
+        .write(WB_WriteReg),
+        .same_addr(WB_reg_dst==MEM_I[`RT]),
+        .data(mem_input_data)
+    );
+
     // Data Memory
     wire [31:0] mem_data;
     DataMem data_mem(
-        .addra(MEM_S), // Bus [8 : 0]
-        .dina(MEM_B),  // Bus [31 : 0]
+        .addra(MEM_S),
+        // Forwarding from WB
+        .dina(mem_input_data),
         .clka(~clk),
         .wea(MEM_MemWrite),
-        .douta(mem_data)); // Bus [31 : 0]
-
+        .douta(mem_data)
+    );
 
     always @(posedge clk or posedge rst) begin
         if (rst) begin
@@ -233,7 +298,7 @@ module top(
 
     /* ----- wb stage ----- */
 
-    assign data_write = WB_MemToReg ? WB_mem_data : WB_S;
+    assign WB_data = WB_MemToReg ? WB_mem_data : WB_S;
 
     /* ----- display ----- */
 
