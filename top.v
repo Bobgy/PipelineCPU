@@ -30,11 +30,11 @@ module top(
     clock clock1(CCLK, 5000000, clk_lcd_ref);
 
     pbdebounce_lcd pbd1 (clk_lcd, BTN[1], debpb1);     //EAST
-    pbdebounce_lcd pbd2 (clk_lcd, BTN[2], clk);        //SOUTH
-    pbdebounce_lcd pbd3 (clk_lcd, BTN[3], rst);        //WEST
+    //pbdebounce_lcd pbd2 (clk_lcd, BTN[2], clk);        //SOUTH
+    //pbdebounce_lcd pbd3 (clk_lcd, BTN[3], rst);        //WEST
 
     //for simulation
-    //assign clk = BTN[2], rst = BTN[3];
+    assign clk = BTN[2], rst = BTN[3];
 
     /* --------- stages -------- */
 
@@ -207,7 +207,7 @@ module top(
         .data1(WB_data),
         .bubble(WB_Bubble),
         .write(WB_WriteReg),
-        .same_addr(WB_reg_dst==EX_I[`RS]),
+        .same_addr(WB_reg_dst==EX_I[`RT]),
         .data(alu_B_WB)
     );
     Forward forward_alu_B_MEM(
@@ -215,7 +215,7 @@ module top(
         .data1(MEM_data),
         .bubble(MEM_Bubble),
         .write(MEM_WriteReg),
-        .same_addr(MEM_reg_dst==EX_I[`RS]),
+        .same_addr(MEM_reg_dst==EX_I[`RT]),
         .data(alu_B_MEM)
     );
 
