@@ -11,15 +11,14 @@ module InstrRegRead(
     reg [3:0] read;
     always @* begin
         case(I[`OP])
-            `R    : case(I[`FN])
-                        `SLL: read <= 4'b00_01;
-                        `SRL: read <= 4'b00_01;
-                        `SRA: read <= 4'b00_01;
-                        default: read <= 4'b01_01;
-                    endcase
-            `JMP  : read <= 4'b00_00;
-            `SW   : read <= 4'b01_10;
-            default : read <= 4'b01_00;
+            `R    : if (I[`FN]==`SLL || I[`FN]==`SRL || I[`FN]==`SRA) begin
+                        read <= {`READ_NOTHING, `READ_AT_EX};
+                    end else read <= {`READ_AT_EX, `READ_AT_EX};
+            `JMP  : read <= {`READ_NOTHING, `READ_NOTHING};
+            `SW   : read <= {`READ_AT_EX, `READ_AT_MEM};
+            `BEQ  : read <= {`READ_AT_ID, `READ_AT_ID};
+            `BNE  : read <= {`READ_AT_ID, `READ_AT_ID};
+            default : read <= {`READ_AT_EX, `READ_NOTHING};
         endcase
     end
     assign {readRs, readRt} = read;

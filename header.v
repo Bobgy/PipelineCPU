@@ -36,6 +36,7 @@
 `define IMMED 15:0
 
 //readRx
-`define READ_NOTHING 2'b00
+`define READ_AT_ID 2'b00
 `define READ_AT_EX 2'b01
 `define READ_AT_MEM 2'b10
+`define READ_NOTHING 2'b11
