@@ -142,7 +142,7 @@ module top(
     CpuController cpu_ctrl(.op(ID_I[31:26]), .sig(sig));
     assign {`ctrl_sig} = sig;
 
-    wire readRs, readRt;
+    wire [1:0] readRs, readRt;
     InstrRegRead instrRegRead0(
         .I(ID_I),
         .readRs(readRs),
