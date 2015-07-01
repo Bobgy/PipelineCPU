@@ -1,6 +1,8 @@
 `timescale 1ns / 1ps
-`define ctrl_sig ALUop2, InvBranch, ZeroExt, RegDst, ALUSrcB,\
- MemToReg, WriteReg, MemWrite, Branch, ALUop1, ALUop0, Jump
+`define ctrl_sig \
+InvBranch, ZeroExt, RegDst, Reg31, ALUSrcB,\
+MemToReg, WriteReg, MemWrite, Branch,\
+Jump
 
 //op
 `define R    6'b000_000
@@ -58,3 +60,20 @@
 `define READ_AT_EX 2'b01
 `define READ_AT_MEM 2'b10
 `define READ_NOTHING 2'b11
+
+//ALU operation code
+`define ALU_NOP    0
+`define ALU_AND    0
+`define ALU_OR     1
+`define ALU_ADD    2
+`define ALU_ADDU   3
+`define ALU_SLL    4
+`define ALU_SRL    5
+`define ALU_SRA    6
+`define ALU_SUB    7
+`define ALU_SUBU   8
+`define ALU_XOR    9
+`define ALU_NOR   10
+`define ALU_SLT   11
+`define ALU_SLTU  12
+`define ALU_FUNC  15

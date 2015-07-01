@@ -9,6 +9,7 @@ module InstrType(
         case(op)
             `R    : tp <= `R_TYPE;
             `JMP  : tp <= `J_TYPE;
+            `JAL  : tp <= `J_TYPE;
             default : tp <= `I_TYPE;
         endcase
     end

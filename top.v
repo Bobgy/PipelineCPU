@@ -40,7 +40,7 @@ module top(
 
     // regs in group
     reg [31:0] ID_I=0, EX_I=0, MEM_I=0, WB_I=0;
-    reg [31:0] ID_NPC;
+    reg [31:0] ID_NPC, EX_NPC;
     reg [31:0] EX_B, MEM_B;
     reg EX_MemToReg, MEM_MemToReg, WB_MemToReg;
     reg [4:0] EX_reg_dst, MEM_reg_dst, WB_reg_dst;
@@ -49,7 +49,7 @@ module top(
 
     // regs alone
     reg EX_ALUSrcB, EX_MemWrite;
-    reg [2:0] EX_ALUop;
+    reg [3:0] EX_ALUop;
     reg [31:0] EX_A, EX_immed;
     reg MEM_MemWrite, MEM_S_is_zero;
     reg [31:0] WB_mem_data;
@@ -110,9 +110,10 @@ module top(
     wire BranchTaken = Branch && ((pc_A==pc_B) ^ InvBranch);
 
     // branch and jump
+    wire jr = ID_I[`OP]==`R && ID_I[`FN]==`JR;
     assign next_pc = o_pc + 1;
     assign branch_dst = BranchTaken ? ID_NPC+immed : next_pc;
-    assign i_pc = stall ? o_pc : (Jump ? ID_I[25:0] : branch_dst);
+    assign i_pc = stall ? o_pc : (Jump ? (jr ? A : ID_I[25:0]) : branch_dst);
 
     InstrMem instr_mem(.addra(o_pc), .clka(~clk), .douta(I));
 
@@ -138,8 +139,9 @@ module top(
 
     // related to cpu_controller
     wire [11:0] sig;
+    wire [3:0] ALUop;
 
-    CpuController cpu_ctrl(.op(ID_I[31:26]), .sig(sig));
+    CpuController cpu_ctrl(.op(ID_I[31:26]), .sig(sig), .alu(ALUop));
     assign {`ctrl_sig} = sig;
 
     wire [1:0] readRs, readRt;
@@ -178,7 +180,7 @@ module top(
         if (rst || stall) begin
             {EX_I, EX_A, EX_B, EX_immed} <= 0;
             {EX_ALUSrcB, EX_ALUop, EX_MemWrite} <= 0;
-            {EX_MemToReg, EX_reg_dst} <= 0;
+            {EX_MemToReg, EX_reg_dst, EX_NPC} <= 0;
             {EX_WriteReg} <= 0;
             EX_Bubble <= 1;
 		  end else begin
@@ -186,10 +188,11 @@ module top(
             EX_A <= A;
             EX_B <= B;
             EX_immed <= immed;
-            EX_reg_dst <= RegDst ? ID_I[`RD] : ID_I[`RT];
+            EX_reg_dst <= Reg31 ? 31 : (RegDst ? ID_I[`RD] : ID_I[`RT]);
+            EX_NPC <= ID_NPC;
             // signals
             EX_ALUSrcB <= ALUSrcB;
-            EX_ALUop <= {ALUop2, ALUop1, ALUop0};
+            EX_ALUop <= ALUop;
             EX_MemWrite <= MemWrite;
             EX_WriteReg <= WriteReg;
             EX_MemToReg <= MemToReg;
@@ -201,13 +204,11 @@ module top(
 
     // ALU
     wire [5:0] func = EX_I[`FN];
-    wire [2:0] aluc_sig;
-    ALUCtrl aluc(.op(EX_ALUop), .sw(func), .aluc(aluc_sig));
+    wire [3:0] aluc_sig;
+    ALUCtrl aluc(.op(EX_ALUop), .fn(func), .aluc(aluc_sig));
 
     wire [31:0] result;
     wire is_zero;
-
-    wire [4:0]  shamt = EX_I[`SHAMT];
 
     wire [31:0] alu_A_WB, alu_A_MEM;
     Forward forward_alu_A_WB(
@@ -246,8 +247,8 @@ module top(
     ALU alu0(
         .A (alu_A_MEM),
         .B (alu_src_B),
-        .op (aluc_sig),
-        .sa (shamt),
+        .op (aluc_sig),             // TODO
+        .sa (EX_I[`OP]==`LUI ? 16 : (EX_I[2] ? EX_A : EX_I[`SHAMT])),
         .res (result),
         .o_zf (is_zero)
     );
@@ -260,7 +261,7 @@ module top(
         end else begin
             MEM_I <= EX_I;
             MEM_B <= EX_B;
-            MEM_S <= result;
+            MEM_S <= EX_I[`OP]==`JAL ? EX_NPC : result;
             MEM_reg_dst <= EX_reg_dst;
             MEM_S_is_zero <= is_zero;
             //signals
