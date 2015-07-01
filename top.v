@@ -17,7 +17,6 @@ module top(
 
     reg [63:0] str0 = "12345678", str1 = "87654321";
     reg [127:0] str2 = "FD06|E03|M07|W0A";
-    reg [3:0] temp=0;
 
     assign LCDDAT=lcdd,
            LCDRS=rslcd,
@@ -30,11 +29,11 @@ module top(
     clock clock1(CCLK, 5000000, clk_lcd_ref);
 
     pbdebounce_lcd pbd1 (clk_lcd, BTN[1], debpb1);     //EAST
-    pbdebounce_lcd pbd2 (clk_lcd, BTN[2], clk);        //SOUTH
-    pbdebounce_lcd pbd3 (clk_lcd, BTN[3], rst);        //WEST
+    //pbdebounce_lcd pbd2 (clk_lcd, BTN[2], clk);        //SOUTH
+    //pbdebounce_lcd pbd3 (clk_lcd, BTN[3], rst);        //WEST
 
     //for simulation
-    //assign clk = BTN[2], rst = BTN[3];
+    assign clk = BTN[2], rst = BTN[3];
 
     /* --------- stages -------- */
 
@@ -51,12 +50,12 @@ module top(
     reg EX_ALUSrcB, EX_MemWrite;
     reg [3:0] EX_ALUop;
     reg [31:0] EX_A, EX_immed;
-    reg MEM_MemWrite, MEM_S_is_zero;
+    reg MEM_MemWrite;
     reg [31:0] WB_mem_data;
     reg ID_Bubble, EX_Bubble, MEM_Bubble, WB_Bubble;
 
     // signals
-    wire stall, EX_data_hazard, MEM_data_hazard;
+    wire stall;
 
     // related to regfile in ID stage
     wire [31:0] A, B, C, immed, WB_data, MEM_data;
@@ -138,10 +137,10 @@ module top(
     /* ------ id stage ------ */
 
     // related to cpu_controller
-    wire [11:0] sig;
+    wire [9:0] sig;
     wire [3:0] ALUop;
 
-    CpuController cpu_ctrl(.op(ID_I[31:26]), .sig(sig), .alu(ALUop));
+    CpuController cpu_ctrl(.I(ID_I), .sig(sig), .alu(ALUop));
     assign {`ctrl_sig} = sig;
 
     wire [1:0] readRs, readRt;
@@ -255,7 +254,7 @@ module top(
 
     always @(posedge clk or posedge rst) begin
         if (rst) begin
-            {MEM_I, MEM_B, MEM_S, MEM_reg_dst, MEM_S_is_zero} <= 0;
+            {MEM_I, MEM_B, MEM_S, MEM_reg_dst} <= 0;
             {MEM_MemWrite, MEM_WriteReg, MEM_MemToReg} <= 0;
             MEM_Bubble <= 1;
         end else begin
@@ -263,7 +262,6 @@ module top(
             MEM_B <= EX_B;
             MEM_S <= EX_I[`OP]==`JAL ? EX_NPC : result;
             MEM_reg_dst <= EX_reg_dst;
-            MEM_S_is_zero <= is_zero;
             //signals
             MEM_MemWrite <= EX_MemWrite;
             MEM_WriteReg <= EX_WriteReg;

@@ -1,4 +1,5 @@
 `timescale 1ns / 1ps
+`include "header.v"
 module ALUCtrl(
 	input [3:0] op,
 	input [5:0] fn,

@@ -1,9 +1,9 @@
 // Spartan-3E Starter Board
 // Liquid Crystal Display Test lcdtest.v
 
-module lcdtest(input CCLK, BTN2, input [3:0] SW, output LCDRS, LCDRW, LCDE, 
+module lcdtest(input CCLK, BTN2, input [3:0] SW, output LCDRS, LCDRW, LCDE,
 					output [3:0] LCDDAT, output [7:0] LED);
-					
+
 wire [3:0] lcdd;
 wire rslcd, rwlcd, elcd;
 wire debpb0;
@@ -29,7 +29,7 @@ assign LED[5] = temp[1];
 assign LED[6] = temp[2];
 assign LED[7] = temp[3];
 
-display M0 (CCLK, debpb0, strdata, rslcd, rwlcd, elcd, lcdd);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+display M0 (CCLK, debpb0, strdata, rslcd, rwlcd, elcd, lcdd);
 clock M2 (CCLK, 25000, clk);
 pbdebounce_lcd M1 (clk, BTN2, debpb0);
 
@@ -37,7 +37,7 @@ always @(posedge debpb0)
 begin
 //	if(debpb0 == 1'b1) begin
 		temp = temp +1;
-		case(temp) 
+		case(temp)
 		4'b0000:strdata[7:0] <= "0";
 		4'b0001:strdata[7:0] <= "1";
 		4'b0010:strdata[7:0] <= "2";
@@ -61,17 +61,17 @@ end
 
 endmodule
 
-module display(input CCLK, reset,input [255:0]strdata, output rslcd, rwlcd, elcd, 
+module display(input CCLK, reset,input [255:0]strdata, output rslcd, rwlcd, elcd,
 					output [3:0] lcdd);
 wire [7:0] lcddatin;
-					
+
 lcd M0 (CCLK, resetlcd, clearlcd, homelcd, datalcd, addrlcd,
 			lcdreset, lcdclear, lcdhome, lcddata, lcdaddr,
 			rslcd, rwlcd, elcd, lcdd, lcddatin, initlcd);
-			
+
 genlcd M1 (CCLK, reset, strdata, resetlcd, clearlcd, homelcd, datalcd,
 				addrlcd, initlcd, lcdreset, lcdclear, lcdhome,
-				lcddata, lcdaddr, lcddatin);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        				
+				lcddata, lcdaddr, lcddatin);
 endmodule
 
 
@@ -81,11 +81,11 @@ module genlcd(input CCLK, debpb0, input [255:0]strdata, output reg resetlcd,
 					output reg initlcd, input lcdreset, lcdclear,
 					input lcdhome, lcddata, lcdaddr,
 					output reg [7:0] lcddatin);
-					
+
 reg [3:0] gstate;		// state register
 
 integer i;
-	
+
 always@(posedge CCLK)
 	begin
 		if (debpb0==1)
@@ -97,7 +97,7 @@ always@(posedge CCLK)
 				gstate=0;
 			end
 		else
-		
+
 		case (gstate)
 			0: begin
 					initlcd=1;
@@ -140,12 +140,12 @@ always@(posedge CCLK)
 					i=255;
 					gstate=8;
 				end
-			8: begin  
+			8: begin
 					if(i>127)
 						lcddatin[7:0]=8'b0000_0000;
 					else
 						lcddatin[7:0]=8'b0100_0000;
-						
+
 					addrlcd=1;
 					if (lcdaddr==1)
 						begin

@@ -5,7 +5,7 @@ module ParseType(
     output [15:0] type
 );
     wire [5:0] op = I[31:26], func = I[5:0];
-    reg [4:0] tp;
+    reg [7:0] tp;
     always @* begin
         case(op)
             `R    : case(func)
@@ -27,6 +27,7 @@ module ParseType(
                         `SRLV: tp <= 23;
                         `SRAV: tp <= 24;
                         `JR  : tp <= 25;
+                        default: tp <= -1;
                     endcase
             `ADDI : tp <= 8;
             `ANDI : tp <= 9;
@@ -48,6 +49,6 @@ module ParseType(
     end
     wire [15:0] tmp;
     bin2asc b2a0(tp[3:0], tmp[7:0]),
-            b2a1({3'b0,tp[4]}, tmp[15:8]);
+            b2a1(tp[7:4], tmp[15:8]);
     assign type = Bubble ? "xx" : tmp;
 endmodule
