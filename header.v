@@ -12,6 +12,13 @@
 `define ADDI 6'b001_000
 `define ANDI 6'b001_100
 `define ORI  6'b001_101
+//new op
+`define ADDIU 6'b001_001
+`define XORI  6'b001_110
+`define LUI   6'b001_111
+`define SLTI  6'b001_010
+`define SLTIU 6'b001_011
+`define JAL   6'b000_011
 
 //func
 `define ADD 6'b100_000
@@ -21,6 +28,17 @@
 `define SLL 6'b000_000
 `define SRL 6'b000_010
 `define SRA 6'b000_011
+//new func
+`define ADDU 6'b100_001
+`define SUBU 6'b100_011
+`define XOR  6'b100_110
+`define NOR  6'b100_111
+`define SLT  6'b101_010
+`define SLTU 6'b101_011
+`define SLLV 6'b000_100
+`define SRLV 6'b000_110
+`define SRAV 6'b000_111
+`define JR   6'b001_000
 
 `define R_TYPE 0
 `define I_TYPE 1
@@ -32,7 +50,7 @@
 `define RT 20:16
 `define RD 15:11
 `define SHAMT 10:6
-`define FN 5:0
+`define FN     5:0
 `define IMMED 15:0
 
 //readRx

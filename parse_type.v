@@ -16,6 +16,17 @@ module ParseType(
                         `SLL : tp <= 5;
                         `SRL : tp <= 6;
                         `SRA : tp <= 7;
+                        // new
+                        `ADDU: tp <= 16;
+                        `SUBU: tp <= 17;
+                        `XOR : tp <= 18;
+                        `NOR : tp <= 19;
+                        `SLT : tp <= 20;
+                        `SLTU: tp <= 21;
+                        `SLLV: tp <= 22;
+                        `SRLV: tp <= 23;
+                        `SRAV: tp <= 24;
+                        `JR  : tp <= 25;
                     endcase
             `ADDI : tp <= 8;
             `ANDI : tp <= 9;
@@ -25,6 +36,13 @@ module ParseType(
             `BEQ  : tp <= 13;
             `BNE  : tp <= 14;
             `JMP  : tp <= 15;
+            //new
+            `ADDIU: tp <= 26;
+            `XORI : tp <= 27;
+            `LUI  : tp <= 28;
+            `SLTI : tp <= 29;
+            `SLTIU: tp <= 30;
+            `JAL  : tp <= 31;
             default : tp <= -1;
         endcase
     end
