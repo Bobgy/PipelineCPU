@@ -26,7 +26,7 @@ module CpuController(
             `ORI   : begin S <= 10'b01001_0100_0; ALU <= `ALU_OR;   end
             `ADDIU : begin S <= 10'b01001_0100_0; ALU <= `ALU_ADDU; end
             `XORI  : begin S <= 10'b01001_0100_0; ALU <= `ALU_XOR;  end
-            `LUI   : begin S <= 10'b01001_0000_0; ALU <= `ALU_SLL;  end
+            `LUI   : begin S <= 10'b01001_0100_0; ALU <= `ALU_SLL;  end
             `SLTI  : begin S <= 10'b00001_0100_0; ALU <= `ALU_SLT;  end
             `SLTIU : begin S <= 10'b01001_0100_0; ALU <= `ALU_SLTU; end
             `JAL   : begin S <= 10'b00010_0100_1; ALU <= `ALU_NOP;  end

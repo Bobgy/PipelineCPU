@@ -29,11 +29,11 @@ module top(
     clock clock1(CCLK, 5000000, clk_lcd_ref);
 
     pbdebounce_lcd pbd1 (clk_lcd, BTN[1], debpb1);     //EAST
-    //pbdebounce_lcd pbd2 (clk_lcd, BTN[2], clk);        //SOUTH
-    //pbdebounce_lcd pbd3 (clk_lcd, BTN[3], rst);        //WEST
+    pbdebounce_lcd pbd2 (clk_lcd, BTN[2], clk);        //SOUTH
+    pbdebounce_lcd pbd3 (clk_lcd, BTN[3], rst);        //WEST
 
     //for simulation
-    assign clk = BTN[2], rst = BTN[3];
+    //assign clk = BTN[2], rst = BTN[3];
 
     /* --------- stages -------- */
 
@@ -110,11 +110,12 @@ module top(
 
     // branch and jump
     wire jr = ID_I[`OP]==`R && ID_I[`FN]==`JR;
-    assign next_pc = o_pc + 1;
-    assign branch_dst = BranchTaken ? ID_NPC+immed : next_pc;
-    assign i_pc = stall ? o_pc : (Jump ? (jr ? A : ID_I[25:0]) : branch_dst);
+    assign next_pc = o_pc + 4;
+    assign branch_dst = BranchTaken ? ID_NPC+(immed<<2) : next_pc;
+    assign i_pc = stall ? o_pc :
+                (Jump ? ((jr ? A : ID_I[25:0])<<2) : branch_dst);
 
-    InstrMem instr_mem(.addra(o_pc), .clka(~clk), .douta(I));
+    InstrMem instr_mem(.addra(o_pc>>2), .clka(~clk), .douta(I));
 
     always @(posedge clk) begin
         if (rst) begin
@@ -246,8 +247,8 @@ module top(
     ALU alu0(
         .A (alu_A_MEM),
         .B (alu_src_B),
-        .op (aluc_sig),             // TODO
-        .sa (EX_I[`OP]==`LUI ? 16 : (EX_I[2] ? EX_A : EX_I[`SHAMT])),
+        .op (aluc_sig),  // TODO: use a specific signal instead of EX_I[2]
+        .sa (EX_I[`OP]==`LUI ? 16 : (EX_I[2] ? alu_A_MEM : EX_I[`SHAMT])),
         .res (result),
         .o_zf (is_zero)
     );
@@ -260,7 +261,7 @@ module top(
         end else begin
             MEM_I <= EX_I;
             MEM_B <= EX_B;
-            MEM_S <= EX_I[`OP]==`JAL ? EX_NPC : result;
+            MEM_S <= EX_I[`OP]==`JAL ? EX_NPC>>2 : result;
             MEM_reg_dst <= EX_reg_dst;
             //signals
             MEM_MemWrite <= EX_MemWrite;
@@ -286,7 +287,7 @@ module top(
     // Data Memory
     wire [31:0] mem_data;
     DataMem data_mem(
-        .addra (MEM_S),
+        .addra (MEM_S>>2),
         // Forwarding from WB
         .dina (mem_input_data),
         .clka (~clk),
